@@ -759,6 +759,7 @@ repair_win(session_t *ps, win *w) {
   add_damage(ps, &parts);
   pixman_region32_fini(&parts);
 }
+
 static void
 restack_win(session_t *ps, win *w, xcb_window_t new_above) {
   xcb_window_t old_above;
@@ -846,6 +847,8 @@ configure_win(session_t *ps, xcb_configure_notify_event_t *ce) {
   // On root window changes
   if (ce->window == ps->root) {
     free_paint(ps, &ps->tgt_buffer);
+    // NEWBK merge
+    // XXX deinit/reinit backend??
 
     ps->root_width = ce->width;
     ps->root_height = ce->height;
@@ -880,6 +883,10 @@ configure_win(session_t *ps, xcb_configure_notify_event_t *ce) {
     if (BKEND_GLX == ps->o.backend)
       glx_on_root_change(ps);
 #endif
+    // NEWBK merge
+    auto root_change_fn = backend_list[ps->o.backend]->root_change;
+    if (root_change_fn)
+	    root_change_fn(ps->backend_data, ps);
 
     force_repaint(ps);
 
@@ -1994,6 +2001,15 @@ redir_start(session_t *ps) {
 
     xcb_composite_redirect_subwindows(ps->c, ps->root, XCB_COMPOSITE_REDIRECT_MANUAL);
 
+    x_sync(ps->c);
+
+    backend_info_t *bi = backend_list[ps->o.backend];
+    assert(bi);
+    ps->backend_data = bi->init(ps);
+    for (win *w = ps->list; w; w = w->next)
+      if (w->a.map_state == XCB_MAP_STATE_VIEWABLE)
+        w->win_data = bi->prepare_win(ps->backend_data, ps, w);
+
     /*
     // Unredirect GL context window as this may have an effect on VSync:
     // < http://dri.freedesktop.org/wiki/CompositeSwap >
@@ -2020,17 +2036,27 @@ static void
 redir_stop(session_t *ps) {
   if (ps->redirected) {
     log_debug("Screen unredirected.");
+    // NEWBK condition
+    backend_info_t *bi = backend_list[ps->o.backend];
     // Destroy all Pictures as they expire once windows are unredirected
     // If we don't destroy them here, looks like the resources are just
     // kept inaccessible somehow
     for (win *w = ps->list; w; w = w->next) {
+      // NEWBK merge
       free_paint(ps, &w->paint);
+      if (w->a.map_state == XCB_MAP_STATE_VIEWABLE)
+        bi->release_win(ps->backend_data, ps, w, w->win_data);
+      w->win_data = NULL;
     }
 
     xcb_composite_unredirect_subwindows(ps->c, ps->root, XCB_COMPOSITE_REDIRECT_MANUAL);
     // Unmap overlay window
     if (ps->overlay)
       xcb_unmap_window(ps->c, ps->overlay);
+
+    // deinit backend
+    bi->deinit(ps->backend_data, ps);
+    ps->backend_data = NULL;
 
     // Must call XSync() here
     x_sync(ps->c);
@@ -2108,8 +2134,10 @@ _draw_callback(EV_P_ session_t *ps, int revents) {
 
   // If the screen is unredirected, free all_damage to stop painting
   if (ps->redirected && ps->o.stoppaint_force != ON) {
+    //NEWBK merge
     static int paint = 0;
     paint_all(ps, t, false);
+    paint_all_new(ps, t, false);
 
     paint++;
     if (ps->o.benchmark && paint >= ps->o.benchmark)
@@ -2867,7 +2895,8 @@ session_destroy(session_t *ps) {
   free_xinerama_info(ps);
 
   deinit_render(ps);
-
+  // NEWBK merge
+  // XXX Destroy backend here
 #ifdef CONFIG_VSYNC_DRM
   // Close file opened for DRM VSync
   if (ps->drm_fd >= 0) {
@@ -2892,6 +2921,9 @@ session_destroy(session_t *ps) {
     xcb_destroy_window(ps->c, ps->reg_win);
     ps->reg_win = XCB_NONE;
   }
+
+  backend_list[ps->o.backend]->deinit(ps->backend_data, ps);
+  ps->backend_data = NULL;
 
   // Flush all events
   x_sync(ps->c);

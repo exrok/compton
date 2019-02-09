@@ -611,6 +611,7 @@ void calc_win_size(session_t *ps, win *w) {
   w->flags |= WFLAG_SIZE_CHANGE;
   // Invalidate the shadow we built
   free_paint(ps, &w->shadow_paint);
+  // NEWBK invalid window data
 }
 
 /**
@@ -920,6 +921,8 @@ bool add_win(session_t *ps, xcb_window_t id, xcb_window_t prev) {
   }
 
   calc_win_size(ps, new);
+
+  log_trace("Window %#010x: %s %p", id, new->name, new->pictfmt);
 
   new->next = *p;
   *p = new;
@@ -1235,6 +1238,16 @@ void win_update_bounding_shape(session_t *ps, win *w) {
   free_paint(ps, &w->paint);
   free_paint(ps, &w->shadow_paint);
   //log_trace("free out dated pict");
+  // NEWBK merge
+  // Window shape changed, we should free win_data
+  if (ps->redirected && w->state == WSTATE_MAPPED) {
+    // Note we only do this when screen is redirected, because
+    // otherwise win_data is not valid
+    backend_info_t *bi = backend_list[ps->o.backend];
+    bi->release_win(ps->backend_data, ps, w, w->win_data);
+    w->win_data = bi->prepare_win(ps->backend_data, ps, w);
+    //log_trace("free out dated pict");
+  }
 
   win_on_factor_change(ps, w);
 }
@@ -1331,6 +1344,14 @@ finish_unmap_win(session_t *ps, win **_w) {
 
   free_paint(ps, &w->paint);
   free_paint(ps, &w->shadow_paint);
+  // NEWBK merge
+  // We are in unmap_win, we definitely was viewable
+  if (ps->redirected) {
+    if (!w->win_data)
+      log_trace("%s", w->name);
+    backend_list[ps->o.backend]->release_win(ps->backend_data, ps, w, w->win_data);
+  }
+  w->win_data = NULL;
 }
 
 static void
