@@ -244,6 +244,7 @@ typedef struct options_t {
 extern const char *const VSYNC_STRS[NUM_VSYNC + 1];
 extern const char *const BACKEND_STRS[NUM_BKEND + 1];
 
+void normalize_conv_kern(int wid, int hei, xcb_render_fixed_t *kern);
 attr_warn_unused_result bool parse_long(const char *, long *);
 attr_warn_unused_result const char *parse_matrix_readnum(const char *, double *);
 attr_warn_unused_result xcb_render_fixed_t *
