@@ -51,12 +51,12 @@ typedef struct gl_texture {
 typedef struct gl_cap {
 	bool non_power_of_two_texture;
 } gl_cap_t;
-
+#define MAX_BLUR_PASS 6
 typedef struct {
 	/// Framebuffer used for blurring.
 	GLuint fbo;
 	/// Textures used for blurring.
-	GLuint textures[2];
+	GLuint textures[MAX_BLUR_PASS];
 	/// Width of the textures.
 	int width;
 	/// Height of the textures.

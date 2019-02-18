@@ -38,6 +38,10 @@ typedef enum {
 	NUM_VSYNC,
 } vsync_t;
 
+typedef struct {
+  int iterations;
+  float offset;
+} blur_strength_t;
 /// @brief Possible backends of compton.
 enum backend {
 	BKEND_XRENDER,
@@ -70,7 +74,7 @@ typedef struct _c2_lptr c2_lptr_t;
 // of blur passes options_t can hold, not a limitation of
 // rendering.
 /// @brief Maximum passes for blur.
-#define MAX_BLUR_PASS 5
+#define MAX_BLUR_PASS 6
 
 /// Structure representing all options.
 typedef struct options_t {
@@ -239,6 +243,8 @@ typedef struct options_t {
 	bool track_wdata;
 	/// Whether compton needs to track window leaders.
 	bool track_leader;
+	blur_strength_t blur_strength;
+
 } options_t;
 
 extern const char *const VSYNC_STRS[NUM_VSYNC + 1];

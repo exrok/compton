@@ -2289,6 +2289,11 @@ session_init(int argc, char **argv, Display *dpy, const char *config_file,
       .track_focus = false,
       .track_wdata = false,
       .track_leader = false,
+
+      .blur_strength = {
+  .iterations = 5,
+  .offset = 10.0,
+}
     },
 
     .time_start = { 0, 0 },

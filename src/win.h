@@ -22,7 +22,7 @@
 
 typedef struct session session_t;
 typedef struct _glx_texture glx_texture_t;
-
+#define MAX_BLUR_PASS 6
 #ifdef CONFIG_OPENGL
 // FIXME this type should be in opengl.h
 //       it is very unideal for it to be here
@@ -30,7 +30,7 @@ typedef struct {
   /// Framebuffer used for blurring.
   GLuint fbo;
   /// Textures used for blurring.
-  GLuint textures[2];
+  GLuint textures[MAX_BLUR_PASS];
   /// Width of the textures.
   int width;
   /// Height of the textures.
